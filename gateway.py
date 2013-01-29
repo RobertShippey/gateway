@@ -1,8 +1,4 @@
-try:
-    import scapy
-except ImportError:
-    del scapy
-    from scapy import all as scapy
+from scapy.all import *
 
 import threading
 
@@ -19,6 +15,7 @@ def DNSQuery(domainName):
 	for r in response[2].an:
 		if r.type == "AAAA":
 			return str(r.rdata)
+
 
 
 
@@ -41,23 +38,20 @@ class translator (threading.Thread):
 
 	def run (self):
 		# check if meant for me
-		if request.src == me:
+		if self.request.src == me:
 			# check if meant for IPv6 - via DNS lookup
 			domainName = request[2].qd.qname
 			lookupIP = DNSQuery(domainName)
-			if request.dst == lookupIP:
-				# check that it's not already mapped
-				
-					# set as mapped
-					
-					# get content from v6 server
-					
-					# send back to v4 client
-					
-					# close connections-ish
-		
-		# I don't even know...
-		
+			#if request.dst == lookupIP:
+# check that it's not already mapped
+# set as mapped
+# get content from v6 server
+# send back to v4 client
+# close connections-ish
+# I don't even know...
+
+
+
 
 
 
@@ -68,9 +62,12 @@ class runner (threading.Thread):
 
 	def run (self):
 		while running:
-			request = connList.pop(0)
-			t = translator(request)
-			t.start()
+			try:
+				request = self.connList.pop(0)
+				t = translator(request)
+				t.start()
+			except IndexError:
+				continue
 
 
 
@@ -82,6 +79,11 @@ translatorRunner = runner(requestBuffer)
 translatorRunner.start()
 
 while 1:
-	pass
+	try:
+		pass
+	except KeyboardInterrupt:
+		running = False
+		print "\nGoodbye"
+		exit()
 
 
