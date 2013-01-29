@@ -25,9 +25,13 @@ class connectionListener (threading.Thread):
 		threading.Thread.__init__(self)
 
 	def run (self):
+		print "Started listening"
 		while running:
-			request = sniff(filter="tcp and port 80", count=1, iface="eth0")
-			self.connList.append(request)
+			request = sniff(filter="port 53", count=1, iface="eth0", promisc=1, timeout=1)
+			if len(request) < 1: continue
+			if not request[0].haslayer(DNS) or request[0].qr: continue
+			if request[0].src = me: continue
+			self.connList.append(request[0])
 
 
 
@@ -37,17 +41,10 @@ class translator (threading.Thread):
 		threading.Thread.__init__(self)
 
 	def run (self):
-		# check if meant for me
-		if self.request.src == me:
-			# check if meant for IPv6 - via DNS lookup
-			domainName = request[2].qd.qname
-			lookupIP = DNSQuery(domainName)
-			#if request.dst == lookupIP:
-# check that it's not already mapped
-# set as mapped
-# get content from v6 server
-# send back to v4 client
-# close connections-ish
+		domainName = request[2].qd.qname
+		lookupIP = DNSQuery(domainName)
+		if not lookupIP is None: return
+		
 # I don't even know...
 
 
@@ -84,6 +81,6 @@ while 1:
 	except KeyboardInterrupt:
 		running = False
 		print "\nGoodbye"
-		exit()
+		break
 
 
