@@ -3,9 +3,12 @@ from scapy.all import *
 import threading
 
 running = True
-requestBuffer = []
+DnsRequestBuffer = []
+HttpRequestBuffer = []
 me = "192.168.0.16"
-DNSServer = "8.8.8.8"
+DNSServerv4 = "8.8.8.8"
+DNSServerv6 = ""
+DNSServer = DNSServerv4
 #me = sys.argv[0]
 
 def DNSQuery(domainName):
@@ -17,9 +20,7 @@ def DNSQuery(domainName):
 			return str(r.rdata)
 
 
-
-
-class connectionListener (threading.Thread):
+class DnsListener (threading.Thread):
 	def __init__(self, connList):
 		self.connList = connList
 		threading.Thread.__init__(self)
@@ -35,24 +36,21 @@ class connectionListener (threading.Thread):
 
 
 
-class translator (threading.Thread):
+class DnsHijacker (threading.Thread):
 	def __init__ (self, request):
 		self.request = request
 		threading.Thread.__init__(self)
 
 	def run (self):
-		domainName = request[2].qd.qname
+		domainName = self.request[2].qd.qname
 		lookupIP = DNSQuery(domainName)
 		if not lookupIP is None: return
-		
-# I don't even know...
+		response = IP(dst=self.request.src)/UDP()/DNS(an=DNSRR(rrname=domainName rdata=me))
+		send(response)
 
 
 
-
-
-
-class runner (threading.Thread):
+class DnsRunner (threading.Thread):
 	def __init__(self, connList):
 		self.connList = connList
 		threading.Thread.__init__(self)
@@ -61,19 +59,18 @@ class runner (threading.Thread):
 		while running:
 			try:
 				request = self.connList.pop(0)
-				t = translator(request)
+				t = DnsHijacker(request)
 				t.start()
 			except IndexError:
 				continue
 
 
 
+dnslistener = DnsListener(DnsRequestBuffer)
+dnslistener.start()
 
-requestListener = connectionListener(requestBuffer)
-requestListener.start()
-
-translatorRunner = runner(requestBuffer)
-translatorRunner.start()
+dnsrunner = DnsRunner(DnsRequestBuffer)
+dnsrunner.start()
 
 while 1:
 	try:
