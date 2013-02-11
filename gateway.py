@@ -1,6 +1,7 @@
 from scapy.all import *
 
 import threading
+import time
 
 running = True
 DnsRequestBuffer = []
@@ -9,6 +10,7 @@ me = "192.168.0.16"
 DNSServerv4 = "8.8.8.8"
 DNSServerv6 = ""
 DNSServer = DNSServerv4
+domainMapping = {}
 #me = sys.argv[0]
 
 def DNSQuery(domainName):
@@ -17,6 +19,7 @@ def DNSQuery(domainName):
 	response = sr1(query)
 	for r in response[2].an:
 		if r.type == "AAAA":
+			domainName[name] = str(r.rdata)
 			return str(r.rdata)
 
 
@@ -35,7 +38,6 @@ class DnsListener (threading.Thread):
 			self.connList.append(request[0])
 
 
-
 class DnsHijacker (threading.Thread):
 	def __init__ (self, request):
 		self.request = request
@@ -47,7 +49,6 @@ class DnsHijacker (threading.Thread):
 		if not lookupIP is None: return
 		response = IP(dst=self.request.src)/UDP()/DNS(an=DNSRR(rrname=domainName rdata=me))
 		send(response)
-
 
 
 class DnsRunner (threading.Thread):
@@ -62,7 +63,52 @@ class DnsRunner (threading.Thread):
 				t = DnsHijacker(request)
 				t.start()
 			except IndexError:
+				time.sleep(10)
 				continue
+
+
+
+class HttpListener (threading.Thread):
+    def __init__(self, connList):
+        self.connList = connList
+        threading.Thread.__init__(self)
+
+    def run(self):
+        while running:
+            request = sniff(filter="port 80", count=1, iface="eth0", timeout=1)
+            if len(request) < 1: continue
+            if request[0][3].load[:3] == "GET":
+                self.connList.addpend(request[0])
+
+
+class HttpRunner (threading.Thread):
+	def __init__(self, connList):
+		self.connList = connList
+		threading.Thread.__init__(self)
+
+	def run(self):
+		while running:
+			try:
+				request = self.connList.pop(0)
+				t = HttpResponder(request)
+				t.start()
+			except IndexError:
+				time.sleep(1)
+				continue
+
+
+class HttpResponder (threading.Thread):
+	def __init__(self, request):
+		self.request = request
+		threading.Thread.__init__(self)
+
+	def run(self):
+		httpReq = string.split(request[0][3].load, None, 3)
+		domainName = httpReq[2]
+		if(domainMapping[domainName]):
+			destination = domainMapping[domainName]
+			# http request to v6 host
+			# etc...
 
 
 
@@ -71,6 +117,12 @@ dnslistener.start()
 
 dnsrunner = DnsRunner(DnsRequestBuffer)
 dnsrunner.start()
+
+httplistener = HttpListener(HttpRequestBuffer)
+httplistener.start()
+
+httprunner = HttpRunner(HttpRequestBuffer)
+HttpRunner.start()
 
 while 1:
 	try:
