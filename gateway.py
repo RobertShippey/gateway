@@ -107,7 +107,10 @@ class HttpResponder (threading.Thread):
 		domainName = httpReq[2]
 		if(domainMapping[domainName]):
 			destination = domainMapping[domainName]
-			# http request to v6 host
+			v6HttpReq = IP(dst=destination)/TCP(dport=80)/Raw(load=request[0][3].load)
+			response = sr1(v6HttpReq)
+			#replace source/destination stuff in respoonse
+			send(response)
 			# etc...
 
 
